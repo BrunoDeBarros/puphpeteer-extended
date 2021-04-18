@@ -12,5 +12,10 @@
             "name": "Bruno Moreira De Barros",
             "email": "bruno@terraduo.com"
         }
-    ]
+    ],
+    "autoload": {
+        "psr-4": {
+            "BrunoDeBarros\\Puphpeteer\\": ""
+        }
+    }
 }
