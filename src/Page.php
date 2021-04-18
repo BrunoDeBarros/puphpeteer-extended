@@ -47,7 +47,6 @@ class Page
      * @param string $node_path
      * @param callable|null $request_logger A callable that accepts (string $url, string $png_contents, string $html_contents)
      * @return Page
-     * @throws \Throwable
      */
     public static function create(string $url, bool $is_debug = false, string $node_path = "/usr/bin/node", ?callable $request_logger = null): Page
     {
@@ -73,6 +72,8 @@ class Page
     }
 
     /**
+     * @param bool $is_debug
+     * @param string $node_path
      * @return Browser
      */
     protected static function getPuppeteer(bool $is_debug, string $node_path): Browser
@@ -104,9 +105,6 @@ class Page
         return self::$puppeteer_browser;
     }
 
-    /**
-     * @throws Throwable
-     */
     public function logRequest()
     {
         if ($this->request_logger) {
