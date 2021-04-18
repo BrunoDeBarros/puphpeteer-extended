@@ -4,10 +4,9 @@ namespace BrunoDeBarros\Puphpeteer;
 
 use Nesk\Puphpeteer\Puppeteer;
 use Nesk\Puphpeteer\Resources\Browser;
-use Nesk\Puphpeteer\Resources\ElementHandle;
 use Nesk\Puphpeteer\Resources\HTTPResponse;
 use Nesk\Rialto\Data\JsFunction;
-use RuntimeException;
+use Nesk\Rialto\Exceptions\Node\Exception;
 use Throwable;
 
 /**
@@ -30,20 +29,30 @@ class Page
      */
     public $page;
 
-    public function __construct(\Nesk\Puphpeteer\Resources\Page $page)
+    /**
+     * @var callable|null
+     */
+    public $request_logger;
+
+    protected function __construct(\Nesk\Puphpeteer\Resources\Page $page, ?callable $request_logger)
     {
         $this->page = $page;
         $this->keyboard = $page->keyboard;
+        $this->request_logger = $request_logger;
     }
 
     /**
      * @param string $url
+     * @param bool $is_debug
+     * @param string $node_path
+     * @param callable|null $request_logger A callable that accepts (string $url, string $png_contents, string $html_contents)
      * @return Page
-     * @throws Throwable
+     * @throws \Throwable
      */
-    public static function getInstance(string $url): Page
+    public static function create(string $url, bool $is_debug = false, string $node_path = "/usr/bin/node", ?callable $request_logger = null): Page
     {
-        $browser = self::getPuppeteer();
+
+        $browser = self::getPuppeteer($is_debug, $node_path);
         $page = $browser->newPage();
         $page->setViewport([
             "width" => 1680,
@@ -53,7 +62,7 @@ class Page
             "waitUntil" => "networkidle0",
         ]);
 
-        $instance = new static($page);
+        $instance = new static($page, $request_logger);
         $instance->logRequest();
         return $instance;
     }
@@ -66,16 +75,16 @@ class Page
     /**
      * @return Browser
      */
-    protected static function getPuppeteer(): Browser
+    protected static function getPuppeteer(bool $is_debug, string $node_path): Browser
     {
         if (self::$puppeteer_browser === null) {
             $puppeteer = new Puppeteer([
-                'executable_path' => env('NODE_PATH'),
+                'executable_path' => $node_path,
                 'log_browser_console' => true,
             ]);
 
             # Always run with UI locally, for easier testing/debugging.
-            if (env('APP_ENV') == 'local') {
+            if ($is_debug) {
                 $options = [
                     'headless' => false,
                     'slowMo' => 10,
@@ -100,22 +109,24 @@ class Page
      */
     public function logRequest()
     {
-        $height = $this->getPageHeight();
-        $page = $this->page;
+        if ($this->request_logger) {
+            $height = $this->getPageHeight();
+            $page = $this->page;
 
-        $page->setViewport([
-            "width" => 1280,
-            "height" => $height,
-        ]);
+            $page->setViewport([
+                "width" => 1280,
+                "height" => $height,
+            ]);
 
-        $basename = time() . "-" . crc32(uniqid("http-"));
-        $png_filename = "puppeteer/$basename.png";
-        $html_filename = "puppeteer/$basename.html";
-        $filepath = storage_path($png_filename);
-        $page->screenshot(['path' => $filepath]);
-
-        $filepath = storage_path($html_filename);
-        file_put_contents($filepath, $this->getHtml());
+            $basename = time() . "-" . crc32(uniqid("http-"));
+            $png_filename = "$basename.png";
+            $filepath = sys_get_temp_dir() . "/" . $png_filename;
+            $page->screenshot(['path' => $filepath]);
+            $png_contents = file_get_contents($filepath);
+            unlink($filepath);
+            $html_contents = $this->getHtml();
+            call_user_func_array($this->request_logger, [$page->url(), $png_contents, $html_contents]);
+        }
     }
 
     /**
@@ -123,7 +134,7 @@ class Page
      */
     public function getPageHeight(): int
     {
-        return $this->page->evaluate(JsFunction::createWithBody("var body = document.body, html = document.documentElement;
+        return $this->page->evaluate(JsFunction::createWithBody(/** @lang JavaScript */ "var body = document.body, html = document.documentElement;
 return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);"));
     }
 
@@ -135,8 +146,8 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
     public function getHtml(): ?string
     {
         try {
-            return $this->page->tryCatch->evaluate(JsFunction::createWithBody("return document.documentElement.outerHTML;"));
-        } catch (\Nesk\Rialto\Exceptions\Node\Exception $e) {
+            return $this->page->tryCatch->evaluate(JsFunction::createWithBody(/** @lang JavaScript */ "return document.documentElement.outerHTML;"));
+        } catch (Exception $e) {
             return null;
         }
     }
@@ -158,12 +169,14 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         $element = $this->page->querySelector($selector);
         if ($element) {
             return new ExpandedElementHandle($this, $element);
+        } else {
+            return null;
         }
     }
 
     /**
      * @param string $selector
-     * @return \App\ExpandedElementHandle[]
+     * @return \BrunoDeBarros\Puphpeteer\ExpandedElementHandle[]
      */
     public function querySelectorAll(string $selector): array
     {
@@ -186,10 +199,12 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         $this->page->close($options);
     }
 
-    public function waitTillNotExists(string $selector)
+    public function waitTillNotExists(string $selector, int $timeout = 30): void
     {
-        while ($this->exists($selector)) {
+        $seconds_elapsed = 0;
+        while ($this->exists($selector) && $seconds_elapsed < $timeout) {
             sleep(1);
+            $seconds_elapsed++;
         }
     }
 
@@ -208,16 +223,5 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
     public function contains(string $string): bool
     {
         return str_contains($this->getHtml(), $string);
-    }
-
-    public function selectOption(string $select_selector, string $option): array
-    {
-        $buffer = $this->page->evaluate(JsFunction::createWithBody("return Array.from(document.querySelectorAll('$select_selector option')).map(function(item) { return {value: item.value, label: item.innerText} })"));
-        $options = [];
-        foreach ($buffer as $row) {
-            $options[$row["value"]] = $row["label"];
-        }
-
-        return $this->page->select($select_selector, $option);
     }
 }

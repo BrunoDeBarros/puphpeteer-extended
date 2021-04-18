@@ -1,8 +1,7 @@
 <?php
 
-namespace App;
+namespace BrunoDeBarros\Puphpeteer;
 
-use BrunoDeBarros\Puphpeteer\Page;
 use Nesk\Puphpeteer\Resources\ElementHandle;
 use Nesk\Rialto\Data\JsFunction;
 
@@ -67,13 +66,13 @@ class ExpandedElementHandle
      */
     public function isVisible(): bool
     {
-        $function = $this->getFunction()->body("return window.getComputedStyle(elem).getPropertyValue('display') !== 'none' && elem.offsetHeight;");
+        $function = $this->getFunction()->body(/** @lang JavaScript */ "return window.getComputedStyle(elem).getPropertyValue('display') !== 'none' && elem.offsetHeight;");
         return $this->element->evaluate($function);
     }
 
     public function blur(): void
     {
-        $function = $this->getFunction()->body("return elem.blur();");
+        $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.blur();");
         $this->element->evaluate($function);
     }
 
@@ -84,7 +83,7 @@ class ExpandedElementHandle
 
     protected function getInnerHTML(): string
     {
-        $function = $this->getFunction()->body("return elem.innerHTML;");
+        $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.innerHTML;");
         return $this->element->evaluate($function);
     }
 
@@ -104,7 +103,7 @@ class ExpandedElementHandle
 
     protected function getValue(): string
     {
-        $function = $this->getFunction()->body("return elem.value;");
+        $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.value;");
         return $this->element->evaluate($function);
     }
 
@@ -129,7 +128,7 @@ class ExpandedElementHandle
         if ($this->isVisible()) {
             $this->element->click($options);
         } else {
-            $function = $this->getFunction()->body("return elem.click();");
+            $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.click();");
             $this->element->evaluate($function);
         }
     }
@@ -155,7 +154,7 @@ class ExpandedElementHandle
 
     public function getOptions(): array
     {
-        $function = $this->getFunction()->body("return Array.from(elem.querySelectorAll('option')).map(function(item) { return {value: item.value, label: item.innerText} })");
+        $function = $this->getFunction()->body(/** @lang JavaScript */ "return Array.from(elem.querySelectorAll('option')).map(function(item) { return {value: item.value, label: item.innerText} })");
         $buffer = $this->element->evaluate($function);
         $valid_options = [];
         foreach ($buffer as $row) {
@@ -169,6 +168,7 @@ class ExpandedElementHandle
      * The reason for this is to enforce a separation between destructive ("submit") clicks, and harmless/idempotent clicks.
      *
      * @param array $options
+     * @throws \Throwable
      */
     public function submit(array $options = []): void
     {
@@ -185,6 +185,15 @@ class ExpandedElementHandle
     public function contains(string $string): bool
     {
         return str_contains($this->innerHTML, $string);
+    }
+
+    /**
+     * @param string $option
+     * @return array
+     */
+    public function selectOption($option): array
+    {
+        return $this->element->select($option);
     }
 
     /**
