@@ -10,6 +10,9 @@ use Nesk\Rialto\Data\JsFunction;
  * @property-read string $innerText
  * @property-read string $value
  * @property-read boolean $checked
+ * @property-read string $href
+ * @property-read array<string, string> $data
+ * @property-read array<string, string> $dataset
  */
 class ExpandedElementHandle
 {
@@ -26,7 +29,7 @@ class ExpandedElementHandle
      *
      * @var \Nesk\Puphpeteer\Resources\ElementHandle
      */
-    protected $element;
+    public $element;
 
     public function __construct(Page $page, ElementHandle $element)
     {
@@ -54,9 +57,17 @@ class ExpandedElementHandle
         }
     }
 
-    protected function getFunction(): JsFunction
+    /**
+     * Runs a string of JS on the element.
+     * The element is passed to the function as `elem`.
+     *
+     * @param string $js
+     * @return mixed
+     */
+    public function evaluate(string $js)
     {
-        return (new JsFunction())->parameters(['elem']);
+        $function = (new JsFunction())->parameters(['elem'])->body($js);
+        return $this->element->evaluate($function);
     }
 
     /**
@@ -66,14 +77,12 @@ class ExpandedElementHandle
      */
     public function isVisible(): bool
     {
-        $function = $this->getFunction()->body(/** @lang JavaScript */ "return window.getComputedStyle(elem).getPropertyValue('display') !== 'none' && elem.offsetHeight;");
-        return $this->element->evaluate($function);
+        return $this->evaluate(/** @lang JavaScript */ "return window.getComputedStyle(elem).getPropertyValue('display') !== 'none' && elem.offsetHeight;");
     }
 
     public function blur(): void
     {
-        $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.blur();");
-        $this->element->evaluate($function);
+        $this->evaluate(/** @lang JavaScript */ "return elem.blur();");
     }
 
     public function focus(): void
@@ -83,8 +92,7 @@ class ExpandedElementHandle
 
     protected function getInnerHTML(): string
     {
-        $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.innerHTML;");
-        return $this->element->evaluate($function);
+        return $this->evaluate(/** @lang JavaScript */ "return elem.innerHTML;");
     }
 
     protected function getInnerText(): string
@@ -98,13 +106,16 @@ class ExpandedElementHandle
      */
     protected function getProperty(string $property_name)
     {
+        if ($property_name == "data" || $property_name == "dataset") {
+            return $this->evaluate(/** @lang JavaScript */ "return JSON.parse(JSON.stringify(elem.dataset))");
+        }
+
         return $this->element->getProperty($property_name)->jsonValue();
     }
 
     protected function getValue(): string
     {
-        $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.value;");
-        return $this->element->evaluate($function);
+        return $this->evaluate(/** @lang JavaScript */ "return elem.value;");
     }
 
     /**
@@ -128,8 +139,7 @@ class ExpandedElementHandle
         if ($this->isVisible()) {
             $this->element->click($options);
         } else {
-            $function = $this->getFunction()->body(/** @lang JavaScript */ "return elem.click();");
-            $this->element->evaluate($function);
+            $this->evaluate(/** @lang JavaScript */ "return elem.click();");
         }
     }
 
@@ -143,6 +153,10 @@ class ExpandedElementHandle
         }
     }
 
+    /**
+     * @param string $selector
+     * @return \BrunoDeBarros\Puphpeteer\ExpandedElementHandle[]
+     */
     public function querySelectorAll(string $selector): array
     {
         $elements = $this->element->querySelectorAll($selector);
@@ -154,8 +168,7 @@ class ExpandedElementHandle
 
     public function getOptions(): array
     {
-        $function = $this->getFunction()->body(/** @lang JavaScript */ "return Array.from(elem.querySelectorAll('option')).map(function(item) { return {value: item.value, label: item.innerText} })");
-        $buffer = $this->element->evaluate($function);
+        $buffer = $this->evaluate(/** @lang JavaScript */ "return Array.from(elem.querySelectorAll('option')).map(function(item) { return {value: item.value, label: item.innerText} })");
         $valid_options = [];
         foreach ($buffer as $row) {
             $valid_options[$row["value"]] = $row["label"];
