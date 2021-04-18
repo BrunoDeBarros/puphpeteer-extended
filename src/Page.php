@@ -2,6 +2,7 @@
 
 namespace BrunoDeBarros\Puphpeteer;
 
+use GuzzleHttp\Psr7\Uri;
 use Nesk\Puphpeteer\Puppeteer;
 use Nesk\Puphpeteer\Resources\Browser;
 use Nesk\Puphpeteer\Resources\HTTPResponse;
@@ -66,17 +67,33 @@ class Page
         return $instance;
     }
 
+    public function newTab(string $url): self
+    {
+        $url = parse_url($url);
+        $current_url = parse_url($this->page->url());
+        $new_url = array_merge($current_url, $url);
+        $new_url = (string)Uri::fromParts($new_url);
+
+        $page = self::getPuppeteer()->newPage();
+        $page->goto($new_url, [
+            "waitUntil" => "networkidle0",
+        ]);
+        $instance = new static($page, $this->request_logger);
+        $instance->logRequest();
+        return $instance;
+    }
+
     public static function resetPuppeteer()
     {
         self::$puppeteer_browser = null;
     }
 
     /**
-     * @param bool $is_debug
-     * @param string $node_path
+     * @param bool|null $is_debug
+     * @param string|null $node_path
      * @return Browser
      */
-    protected static function getPuppeteer(bool $is_debug, string $node_path): Browser
+    protected static function getPuppeteer(?bool $is_debug = null, ?string $node_path = null): Browser
     {
         if (self::$puppeteer_browser === null) {
             $puppeteer = new Puppeteer([
@@ -172,6 +189,16 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         }
     }
 
+    public function goto(string $url, array $options = []): ?HTTPResponse
+    {
+        return $this->page->goto($url, $options);
+    }
+
+    public function reload(array $options = []): ?HTTPResponse
+    {
+        return $this->page->reload($options);
+    }
+
     /**
      * @param string $selector
      * @return \BrunoDeBarros\Puphpeteer\ExpandedElementHandle[]
@@ -221,5 +248,34 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
     public function contains(string $string): bool
     {
         return str_contains($this->getHtml(), $string);
+    }
+
+    /**
+     * Run arbitrary PHP during testing by modifying $php_script_filename.
+     * It will keep the browser alive and await changes to the file.
+     *
+     * @param string $php_script_filename
+     */
+    public function awaitCommands(string $php_script_filename): void
+    {
+        $last_contents = file_get_contents($php_script_filename);
+        dump("Awaiting PHP commands at $php_script_filename.");
+        while (true) {
+            $new_contents = file_get_contents($php_script_filename);
+            if ($new_contents != $last_contents) {
+                $last_contents = $new_contents;
+                dump("Detected change to $php_script_filename, running...");
+                try {
+                    require $php_script_filename;
+                } catch (Throwable $e) {
+                    dump("Found a " . get_class($e) . ": " . $e->getMessage());
+                }
+            }
+
+            # Keep the browser alive.
+            $this->getHtml();
+
+            sleep(1);
+        }
     }
 }
