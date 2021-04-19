@@ -61,12 +61,17 @@ class ExpandedElementHandle
      * Runs a string of JS on the element.
      * The element is passed to the function as `elem`.
      *
-     * @param string $js
+     * @param string|JsFunction $js
      * @return mixed
      */
-    public function evaluate(string $js)
+    public function evaluate(string|JsFunction $js)
     {
-        $function = (new JsFunction())->parameters(['elem'])->body($js);
+        if (is_string($js)) {
+            $function = (new JsFunction())->parameters(['elem'])->body($js);
+        } else {
+            $function = $js;
+        }
+
         return $this->element->evaluate($function);
     }
 

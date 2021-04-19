@@ -5,7 +5,8 @@
     "require": {
         "php": "^7.3 | ^8.0",
         "nesk/puphpeteer": "^2.0",
-        "guzzlehttp/psr7": "^1.8"
+        "guzzlehttp/psr7": "^1.8",
+        "ext-json": "*"
     },
     "license": "MIT",
     "authors": [

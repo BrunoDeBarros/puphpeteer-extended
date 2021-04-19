@@ -83,6 +83,23 @@ class Page
         return $instance;
     }
 
+    /**
+     * Runs a string of JS on the document.
+     *
+     * @param string|JsFunction $js
+     * @return mixed
+     */
+    public function evaluate(string|JsFunction $js)
+    {
+        if (is_string($js)) {
+            $function = (new JsFunction())->body($js);
+        } else {
+            $function = $js;
+        }
+
+        return $this->page->tryCatch->evaluate($function);
+    }
+
     public static function resetPuppeteer()
     {
         self::$puppeteer_browser = null;
@@ -149,8 +166,8 @@ class Page
      */
     public function getPageHeight(): int
     {
-        return $this->page->evaluate(JsFunction::createWithBody(/** @lang JavaScript */ "var body = document.body, html = document.documentElement;
-return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);"));
+        return $this->evaluate(/** @lang JavaScript */ "var body = document.body, html = document.documentElement;
+return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);");
     }
 
     /**
@@ -161,7 +178,7 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
     public function getHtml(): ?string
     {
         try {
-            return $this->page->tryCatch->evaluate(JsFunction::createWithBody(/** @lang JavaScript */ "return document.documentElement.outerHTML;"));
+            return $this->evaluate(/** @lang JavaScript */ "return document.documentElement.outerHTML;");
         } catch (Exception $e) {
             return null;
         }
@@ -187,6 +204,27 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         } else {
             return null;
         }
+    }
+
+    public function download(string $url): string
+    {
+        $url = json_encode($url);
+        $function = (new JsFunction())->body(/** @lang JavaScript */ "
+            return await fetch($url)
+            .then(response => response.blob())
+             .then((blob) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                        reader.addEventListener('loadend', () => {
+                           resolve(reader.result);
+                        });
+                    reader.readAsDataURL(blob);
+                });
+             });
+        ")->async();
+        $result = $this->evaluate($function);
+        $binary = file_get_contents($result);
+        return $binary;
     }
 
     public function goto(string $url, array $options = []): ?HTTPResponse
