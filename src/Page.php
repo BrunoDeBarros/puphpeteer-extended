@@ -208,23 +208,49 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
 
     public function download(string $url): string
     {
-        $url = json_encode($url);
-        $function = (new JsFunction())->body(/** @lang JavaScript */ "
-            return await fetch($url)
-            .then(response => response.blob())
-             .then((blob) => {
-                return new Promise((resolve, reject) => {
+        try {
+            $current_url = parse_url($this->page->url());
+            $download_url = parse_url($url);
+            $close_tab = false;
+
+            if ($current_url["host"] != $download_url["host"] || $current_url["scheme"] != $download_url["scheme"]) {
+                # Go to the root of the website, because loading a PDF URL causes issues in headless Chrome.
+                unset($download_url["path"]);
+                $download_url = (string)Uri::fromParts($download_url);
+                $tab = $this->newTab($download_url);
+                $close_tab = true;
+            } else {
+                $tab = $this;
+            }
+
+            $url = json_encode($url);
+            $function = (new JsFunction())->body(/** @lang JavaScript */ "
+                return await fetch($url)
+                .then((response) => response.blob())
+                .then((blob) => {
                     const reader = new FileReader();
-                        reader.addEventListener('loadend', () => {
-                           resolve(reader.result);
-                        });
-                    reader.readAsDataURL(blob);
-                });
-             });
+                    return new Promise((resolve, reject) => {
+                        reader.onloadend = () => {
+                          resolve(reader.result);
+                        };
+                        reader.onerror = () => {
+                            reject(reader.error);
+                        };
+                        reader.readAsDataURL(blob);
+                    });
+                 });
         ")->async();
-        $result = $this->evaluate($function);
-        $binary = file_get_contents($result);
-        return $binary;
+            $result = $tab->evaluate($function);
+            $binary = file_get_contents($result);
+
+            if ($close_tab) {
+                $tab->close();
+            }
+
+            return $binary;
+        } catch (Exception $e) {
+            throw new \RuntimeException("Could not download $url - " . $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     public function goto(string $url, array $options = []): ?HTTPResponse

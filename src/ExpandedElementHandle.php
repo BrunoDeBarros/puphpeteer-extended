@@ -64,7 +64,7 @@ class ExpandedElementHandle
      * @param string|JsFunction $js
      * @return mixed
      */
-    public function evaluate(string|JsFunction $js)
+    public function evaluate($js)
     {
         if (is_string($js)) {
             $function = (new JsFunction())->parameters(['elem'])->body($js);
