@@ -210,6 +210,25 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         }
     }
 
+    /**
+     * Set the path to which files will be downloaded if a download is triggered from the browser.
+     *
+     * @param string $path
+     */
+    public function setDownloadPath(string $path): void
+    {
+        if (!file_exists($path)) {
+            throw new \UnexpectedValueException("'$path' does not exist.");
+        }
+
+        $path = realpath($path);
+
+        $this->page->_client->send('Page.setDownloadBehavior', [
+            "behavior" => 'allow',
+            "downloadPath" => $path,
+        ]);
+    }
+
     public function download(string $url): string
     {
         try {
