@@ -4,6 +4,7 @@ namespace BrunoDeBarros\Puphpeteer;
 
 use Nesk\Puphpeteer\Resources\ElementHandle;
 use Nesk\Rialto\Data\JsFunction;
+use Nesk\Rialto\Exceptions\Node\Exception;
 
 /**
  * @property-read string $innerHTML
@@ -72,7 +73,11 @@ class ExpandedElementHandle
             $function = $js;
         }
 
-        return $this->element->evaluate($function);
+        try {
+            return $this->element->evaluate($function);
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     /**
@@ -92,7 +97,11 @@ class ExpandedElementHandle
 
     public function focus(): void
     {
-        $this->element->focus();
+        try {
+            $this->element->focus();
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     protected function getInnerHTML(): string
@@ -115,7 +124,11 @@ class ExpandedElementHandle
             return $this->evaluate(/** @lang JavaScript */ "return JSON.parse(JSON.stringify(elem.dataset))");
         }
 
-        return $this->element->getProperty($property_name)->jsonValue();
+        try {
+            return $this->element->getProperty($property_name)->jsonValue();
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     protected function getValue(): string
@@ -132,29 +145,41 @@ class ExpandedElementHandle
      */
     public function type(string $value, bool $append = false, ?array $options = []): void
     {
-        if (!$append) {
-            $this->element->click(["clickCount" => 3]);
-        }
+        try {
+            if (!$append) {
+                $this->element->click(["clickCount" => 3]);
+            }
 
-        $this->element->type($value, $options);
+            $this->element->type($value, $options);
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     public function click(array $options = []): void
     {
-        if ($this->isVisible()) {
-            $this->element->click($options);
-        } else {
-            $this->evaluate(/** @lang JavaScript */ "return elem.click();");
+        try {
+            if ($this->isVisible()) {
+                $this->element->click($options);
+            } else {
+                $this->evaluate(/** @lang JavaScript */ "return elem.click();");
+            }
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
         }
     }
 
     public function querySelector(string $selector): ?ExpandedElementHandle
     {
-        $element = $this->element->querySelector($selector);
-        if ($element) {
-            return new ExpandedElementHandle($this->page, $element);
-        } else {
-            return null;
+        try {
+            $element = $this->element->querySelector($selector);
+            if ($element) {
+                return new ExpandedElementHandle($this->page, $element);
+            } else {
+                return null;
+            }
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
         }
     }
 
@@ -164,11 +189,15 @@ class ExpandedElementHandle
      */
     public function querySelectorAll(string $selector): array
     {
-        $elements = $this->element->querySelectorAll($selector);
-        foreach ($elements as $key => $value) {
-            $elements[$key] = new ExpandedElementHandle($this->page, $value);
+        try {
+            $elements = $this->element->querySelectorAll($selector);
+            foreach ($elements as $key => $value) {
+                $elements[$key] = new ExpandedElementHandle($this->page, $value);
+            }
+            return $elements;
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
         }
-        return $elements;
     }
 
     public function getOptions(): array
@@ -211,7 +240,11 @@ class ExpandedElementHandle
      */
     public function selectOption($option): array
     {
-        return $this->element->select($option);
+        try {
+            return $this->element->select($option);
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     /**
@@ -220,6 +253,10 @@ class ExpandedElementHandle
      */
     public function selectOptions($options): array
     {
-        return $this->element->select($options);
+        try {
+            return $this->element->select($options);
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 }

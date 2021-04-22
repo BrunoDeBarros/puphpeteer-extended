@@ -89,7 +89,7 @@ class Page
      * @param string|JsFunction $js
      * @return mixed
      */
-    public function evaluate(string|JsFunction $js)
+    public function evaluate(string $js)
     {
         if (is_string($js)) {
             $function = (new JsFunction())->body($js);
@@ -97,7 +97,11 @@ class Page
             $function = $js;
         }
 
-        return $this->page->tryCatch->evaluate($function);
+        try {
+            return $this->page->tryCatch->evaluate($function);
+        } catch (Exception $e) {
+            throw new PageException($this, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     public static function resetPuppeteer()
@@ -299,8 +303,12 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
 
     public function waitForSelector(string $selector, array $options = []): ExpandedElementHandle
     {
-        $element = $this->page->tryCatch->waitForSelector($selector, array_merge(["visible" => true], $options));
-        return new ExpandedElementHandle($this, $element);
+        try {
+            $element = $this->page->tryCatch->waitForSelector($selector, array_merge(["visible" => true], $options));
+            return new ExpandedElementHandle($this, $element);
+        } catch (Exception $e) {
+            throw new PageException($this, $e->getMessage(), $e->getCode(), $e);
+        }
     }
 
     /**
@@ -322,6 +330,7 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
      */
     public function awaitCommands(string $php_script_filename): void
     {
+        $php_script_filename = realpath($php_script_filename);
         $last_contents = file_get_contents($php_script_filename);
         dump("Awaiting PHP commands at $php_script_filename.");
         while (true) {
