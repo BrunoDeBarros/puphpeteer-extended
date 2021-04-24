@@ -31,6 +31,16 @@ class Page
     public $page;
 
     /**
+     * @var string
+     */
+    protected static $node_path;
+
+    /**
+     * @var string
+     */
+    protected static $chromium_path;
+
+    /**
      * @var callable|null
      */
     public $request_logger;
@@ -45,14 +55,13 @@ class Page
     /**
      * @param string $url
      * @param bool $is_debug
-     * @param string $node_path
      * @param callable|null $request_logger A callable that accepts (string $url, string $png_contents, string $html_contents)
      * @return Page
      */
-    public static function create(string $url, bool $is_debug = false, string $node_path = "/usr/bin/node", ?callable $request_logger = null): Page
+    public static function create(string $url, bool $is_debug = false, ?callable $request_logger = null): Page
     {
 
-        $browser = self::getPuppeteer($is_debug, $node_path);
+        $browser = self::getPuppeteer($is_debug, static::getNodePath());
         $page = $browser->newPage();
         $page->setViewport([
             "width" => 1680,
@@ -65,6 +74,45 @@ class Page
         $instance = new static($page, $request_logger);
         $instance->logRequest();
         return $instance;
+    }
+
+    /**
+     * @return string
+     */
+    public static function getNodePath(): string
+    {
+        if (self::$node_path === null) {
+            $result = trim(shell_exec("which node"));
+            if (!empty($result)) {
+                self::$node_path = $result;
+            }
+        }
+
+        return self::$node_path;
+    }
+
+    /**
+     * @param string $node_path
+     */
+    public static function setNodePath(string $node_path): void
+    {
+        self::$node_path = $node_path;
+    }
+
+    /**
+     * @return string
+     */
+    public static function getChromiumPath(): string
+    {
+        return self::$chromium_path;
+    }
+
+    /**
+     * @param string $chromium_path
+     */
+    public static function setChromiumPath(string $chromium_path): void
+    {
+        self::$chromium_path = $chromium_path;
     }
 
     public function newTab(string $url): self
