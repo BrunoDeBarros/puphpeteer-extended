@@ -36,11 +36,6 @@ class Page
     protected static $node_path;
 
     /**
-     * @var string
-     */
-    protected static $chromium_path;
-
-    /**
      * @var callable|null
      */
     public $request_logger;
@@ -99,22 +94,6 @@ class Page
         self::$node_path = $node_path;
     }
 
-    /**
-     * @return string
-     */
-    public static function getChromiumPath(): string
-    {
-        return self::$chromium_path;
-    }
-
-    /**
-     * @param string $chromium_path
-     */
-    public static function setChromiumPath(string $chromium_path): void
-    {
-        self::$chromium_path = $chromium_path;
-    }
-
     public function newTab(string $url): self
     {
         $url = parse_url($url);
@@ -137,7 +116,7 @@ class Page
      * @param string|JsFunction $js
      * @return mixed
      */
-    public function evaluate(string $js)
+    public function evaluate($js)
     {
         if (is_string($js)) {
             $function = (new JsFunction())->body($js);
