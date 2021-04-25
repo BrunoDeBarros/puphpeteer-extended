@@ -36,6 +36,11 @@ class Page
     protected static $node_path;
 
     /**
+     * @var string
+     */
+    protected $download_path;
+
+    /**
      * @var callable|null
      */
     public $request_logger;
@@ -254,6 +259,70 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
             "behavior" => 'allow',
             "downloadPath" => $path,
         ]);
+        $this->download_path = $path;
+    }
+
+    /**
+     * Trigger a download in the browser and collect the resulting file (e.g. clicking a JS-powered button).
+     *
+     * @param callable $trigger_download
+     * @return array
+     */
+    public function triggerDownload(callable $trigger_download): array
+    {
+        $old_path = $this->getDownloadPath();
+        $temp_path = sys_get_temp_dir() . "/" . uniqid("temp-puppeteer");
+        mkdir($temp_path);
+        echo $temp_path;
+        $this->setDownloadPath($temp_path);
+        try {
+            $trigger_download($this);
+            throw new \RuntimeException("This should always abort navigation!");
+        } catch (Exception $e) {
+            # Wait for the download to end.
+            $found_new_file = false;
+            $new_files = $this->getFilesList($this->getDownloadPath());
+
+            while (!$found_new_file) {
+                $new_files = $this->getFilesList($this->getDownloadPath());
+
+                if (count($new_files) > 0) {
+                    $found_new_file = true;
+                } else {
+                    sleep(1);
+                }
+            }
+
+            if (count($new_files) > 1) {
+                throw new \RuntimeException("More than one new file found! Race condition?");
+            }
+
+            $downloaded_file = new \SplFileInfo(reset($new_files));
+            $contents = file_get_contents($downloaded_file->getRealPath());
+            $basename = $downloaded_file->getBasename();
+            $this->setDownloadPath($old_path);
+            unlink($downloaded_file->getRealPath());
+            rmdir($temp_path);
+            return ["filename" => $basename, "contents" => $contents];
+        }
+    }
+
+    public function getFilesList(string $directory): array
+    {
+        $directory = new \RecursiveDirectoryIterator($directory);
+        $existing = [];
+        foreach ($directory as $file) {
+            if ($file->isFile()) {
+                $existing[] = $file->getRealPath();
+            }
+        }
+
+        return $existing;
+    }
+
+    public function getDownloadPath(): string
+    {
+        return $this->download_path;
     }
 
     public function download(string $url): string
@@ -305,7 +374,7 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
 
     public function goto(string $url, array $options = []): ?HTTPResponse
     {
-        return $this->page->goto($url, $options);
+        return $this->page->tryCatch->goto($url, $options);
     }
 
     public function reload(array $options = []): ?HTTPResponse
