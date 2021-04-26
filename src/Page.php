@@ -56,7 +56,7 @@ class Page
      * @param string $url
      * @param bool $is_debug
      * @param callable|null $request_logger A callable that accepts (string $url, string $png_contents, string $html_contents)
-     * @return Page
+     * @return static
      */
     public static function create(string $url, bool $is_debug = false, ?callable $request_logger = null): self
     {
@@ -138,6 +138,10 @@ class Page
 
     public static function resetPuppeteer()
     {
+        if (static::$puppeteer_browser !== null) {
+            static::$puppeteer_browser->close();
+        }
+
         static::$puppeteer_browser = null;
     }
 
