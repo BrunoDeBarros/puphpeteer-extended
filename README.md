@@ -1,5 +1,7 @@
 # puphpeteer-extended
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=BrunoDeBarros_puphpeteer-extended&metric=alert_status)](https://sonarcloud.io/dashboard?id=BrunoDeBarros_puphpeteer-extended)
+
 A set of classes that makes it easier to work with puphpeteer.
 
 ## Requirements and installation

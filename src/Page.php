@@ -58,10 +58,10 @@ class Page
      * @param callable|null $request_logger A callable that accepts (string $url, string $png_contents, string $html_contents)
      * @return Page
      */
-    public static function create(string $url, bool $is_debug = false, ?callable $request_logger = null): Page
+    public static function create(string $url, bool $is_debug = false, ?callable $request_logger = null): self
     {
 
-        $browser = self::getPuppeteer($is_debug, static::getNodePath());
+        $browser = static::getPuppeteer($is_debug, static::getNodePath());
         $page = $browser->newPage();
         $page->setViewport([
             "width" => 1680,
@@ -81,14 +81,14 @@ class Page
      */
     public static function getNodePath(): string
     {
-        if (self::$node_path === null) {
+        if (static::$node_path === null) {
             $result = trim(shell_exec("which node"));
             if (!empty($result)) {
-                self::$node_path = $result;
+                static::$node_path = $result;
             }
         }
 
-        return self::$node_path;
+        return static::$node_path;
     }
 
     /**
@@ -96,7 +96,7 @@ class Page
      */
     public static function setNodePath(string $node_path): void
     {
-        self::$node_path = $node_path;
+        static::$node_path = $node_path;
     }
 
     public function newTab(string $url): self
@@ -106,7 +106,7 @@ class Page
         $new_url = array_merge($current_url, $url);
         $new_url = (string)Uri::fromParts($new_url);
 
-        $page = self::getPuppeteer()->newPage();
+        $page = static::getPuppeteer()->newPage();
         $page->goto($new_url, [
             "waitUntil" => "networkidle0",
         ]);
@@ -138,7 +138,7 @@ class Page
 
     public static function resetPuppeteer()
     {
-        self::$puppeteer_browser = null;
+        static::$puppeteer_browser = null;
     }
 
     /**
@@ -148,7 +148,7 @@ class Page
      */
     protected static function getPuppeteer(?bool $is_debug = null, ?string $node_path = null): Browser
     {
-        if (self::$puppeteer_browser === null) {
+        if (static::$puppeteer_browser === null) {
             $puppeteer = new Puppeteer([
                 'executable_path' => $node_path,
                 'log_browser_console' => true,
@@ -169,10 +169,10 @@ class Page
             }
 
             $browser = $puppeteer->launch($options);
-            self::$puppeteer_browser = $browser;
+            static::$puppeteer_browser = $browser;
         }
 
-        return self::$puppeteer_browser;
+        return static::$puppeteer_browser;
     }
 
     public function logRequest()
@@ -416,11 +416,20 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         }
     }
 
-    public function waitForSelector(string $selector, array $options = []): ExpandedElementHandle
+    public function waitForSelector(string $selector): ExpandedElementHandle
     {
         try {
-            $element = $this->page->tryCatch->waitForSelector($selector, array_merge(["visible" => true], $options));
+            $element = $this->page->tryCatch->waitForSelector($selector, ["visible" => true]);
             return new ExpandedElementHandle($this, $element);
+        } catch (Exception $e) {
+            throw new PageException($this, $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+
+    public function waitForSelectorToDisappear(string $selector, array $options = []): void
+    {
+        try {
+            $this->page->tryCatch->waitForSelector($selector, ["hidden" => true]);
         } catch (Exception $e) {
             throw new PageException($this, $e->getMessage(), $e->getCode(), $e);
         }
