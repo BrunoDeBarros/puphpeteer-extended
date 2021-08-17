@@ -277,38 +277,38 @@ return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.sc
         $old_path = $this->getDownloadPath();
         $temp_path = sys_get_temp_dir() . "/" . uniqid("temp-puppeteer");
         mkdir($temp_path);
-        echo $temp_path;
         $this->setDownloadPath($temp_path);
         try {
             $trigger_download($this);
-            throw new \RuntimeException("This should always abort navigation!");
         } catch (Exception $e) {
-            # Wait for the download to end.
-            $found_new_file = false;
+            # Navigation may or may not have been aborted by the JS-based download.
+        }
+
+        # Wait for the download to end.
+        $found_new_file = false;
+        $new_files = $this->getFilesList($this->getDownloadPath());
+
+        while (!$found_new_file) {
             $new_files = $this->getFilesList($this->getDownloadPath());
 
-            while (!$found_new_file) {
-                $new_files = $this->getFilesList($this->getDownloadPath());
-
-                if (count($new_files) > 0) {
-                    $found_new_file = true;
-                } else {
-                    sleep(1);
-                }
+            if (count($new_files) > 0) {
+                $found_new_file = true;
+            } else {
+                sleep(1);
             }
-
-            if (count($new_files) > 1) {
-                throw new \RuntimeException("More than one new file found! Race condition?");
-            }
-
-            $downloaded_file = new \SplFileInfo(reset($new_files));
-            $contents = file_get_contents($downloaded_file->getRealPath());
-            $basename = $downloaded_file->getBasename();
-            $this->setDownloadPath($old_path);
-            unlink($downloaded_file->getRealPath());
-            rmdir($temp_path);
-            return ["filename" => $basename, "contents" => $contents];
         }
+
+        if (count($new_files) > 1) {
+            throw new \RuntimeException("More than one new file found! Race condition?");
+        }
+
+        $downloaded_file = new \SplFileInfo(reset($new_files));
+        $contents = file_get_contents($downloaded_file->getRealPath());
+        $basename = $downloaded_file->getBasename();
+        $this->setDownloadPath($old_path);
+        unlink($downloaded_file->getRealPath());
+        rmdir($temp_path);
+        return ["filename" => $basename, "contents" => $contents];
     }
 
     public function getFilesList(string $directory): array
