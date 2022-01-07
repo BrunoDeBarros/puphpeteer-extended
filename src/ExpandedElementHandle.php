@@ -184,6 +184,27 @@ class ExpandedElementHandle
     }
 
     /**
+     * Query the element's Shadow DOM.
+     *
+     * @param string $shadow_selector
+     * @return \BrunoDeBarros\Puphpeteer\ExpandedElementHandle|null
+     */
+    public function querySelectorShadow(string $shadow_selector): ?ExpandedElementHandle
+    {
+        try {
+            $shadow_selector = str_replace("'", "\\'", $shadow_selector);
+            $element = $this->element->evaluateHandle((new JsFunction())->parameters(['elem'])->body("return elem.shadowRoot.querySelector('$shadow_selector')"));
+            if ($element) {
+                return new ExpandedElementHandle($this->page, $element);
+            } else {
+                return null;
+            }
+        } catch (Exception $e) {
+            throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
+        }
+    }
+
+    /**
      * @param string $selector
      * @return \BrunoDeBarros\Puphpeteer\ExpandedElementHandle[]
      */
