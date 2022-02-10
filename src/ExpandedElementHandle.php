@@ -155,6 +155,21 @@ class ExpandedElementHandle
             throw new PageException($this->page, $e->getMessage(), $e->getCode(), $e);
         }
     }
+    
+    /**
+     * Select file(s) to upload.
+     *
+     * @param array|string $filepaths
+     * @return void
+     */
+    public function selectFiles(array|string $filepaths): void
+    {
+        if (!is_array($filepaths)) {
+            $filepaths = [$filepaths];
+        }
+
+        call_user_func_array([$this->element, "uploadFile"], $filepaths);
+    }
 
     public function click(array $options = []): void
     {
