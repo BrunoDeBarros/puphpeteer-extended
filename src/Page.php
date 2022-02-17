@@ -185,6 +185,8 @@ class Page
             $height = $this->getPageHeight();
             $page = $this->page;
 
+            $old_viewport = $page->viewport();
+
             $page->setViewport([
                 "width" => 1280,
                 "height" => $height,
@@ -197,6 +199,10 @@ class Page
             $png_contents = file_get_contents($filepath);
             unlink($filepath);
             $html_contents = $this->getHtml();
+
+            # Go back to the old viewport so as not to break pages.
+            $page->setViewport($old_viewport);
+
             call_user_func_array($this->request_logger, [$page->url(), $png_contents, $html_contents]);
         }
     }
