@@ -209,7 +209,7 @@ class ExpandedElementHandle
         try {
             $shadow_selector = str_replace("'", "\\'", $shadow_selector);
             $element = $this->element->evaluateHandle((new JsFunction())->parameters(['elem'])->body("return elem.shadowRoot.querySelector('$shadow_selector')"));
-            if ($element) {
+            if ($element instanceof ElementHandle) {
                 return new ExpandedElementHandle($this->page, $element);
             } else {
                 return null;
