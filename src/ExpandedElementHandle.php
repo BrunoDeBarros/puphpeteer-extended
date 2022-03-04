@@ -137,6 +137,23 @@ class ExpandedElementHandle
     }
 
     /**
+     * Set the value property of an element.
+     *
+     * @param string|int|array $value
+     * @return static $this
+     */
+    public function setValue(string|int|array $value): static
+    {
+        $json = json_encode($value);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \InvalidArgumentException('json_encode error: ' . json_last_error_msg(), json_last_error());
+        }
+
+        $this->evaluate(/** @lang JavaScript */ "elem.value = $json;");
+        return $this;
+    }
+
+    /**
      * Types into a text input.
      *
      * @param string $value
